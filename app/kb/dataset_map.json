@@ -1,0 +1,7 @@
+{
+  "population": "demo_pjan",
+  "fertility": "demo_find",
+  "unemployment": "une_rt_m",
+  "inflation": "prc_hicp_manr",
+  "housing_deprivation": "ilc_lvho02"
+}

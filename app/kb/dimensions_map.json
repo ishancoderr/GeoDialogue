@@ -1,0 +1,22 @@
+{
+  "demo_pjan": {
+    "required": ["geo", "time"],
+    "defaults": {}
+  },
+  "demo_find": {
+    "required": ["geo", "time"],
+    "defaults": {}
+  },
+  "une_rt_m": {
+    "required": ["geo", "time"],
+    "defaults": {}
+  },
+  "prc_hicp_manr": {
+    "required": ["geo", "time"],
+    "defaults": {}
+  },
+  "ilc_lvho02": {
+    "required": ["geo", "time"],
+    "defaults": {}
+  }
+}

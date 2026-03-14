@@ -1,0 +1,15 @@
+{
+  "population": "population",
+  "total population": "population",
+  "inhabitants": "population",
+  "people count": "population",
+  "fertility": "fertility",
+  "total fertility": "fertility",
+  "birth rate": "fertility",
+  "unemployment": "unemployment",
+  "jobless rate": "unemployment",
+  "inflation": "inflation",
+  "consumer price inflation": "inflation",
+  "housing deprivation": "housing_deprivation",
+  "severe housing deprivation": "housing_deprivation"
+}

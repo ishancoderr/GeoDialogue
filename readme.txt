@@ -1,0 +1,1 @@
+search data with api:https://ec.europa.eu/eurostat/web/user-guides/data-browser/api-data-access/api-getting-started/api

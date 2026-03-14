@@ -1,0 +1,14 @@
+# Runtime
+.venv/
+__pycache__/
+*.pyc
+
+# Local environment config
+.env
+
+# Generated data
+data/
+
+# IDE
+.vscode/
+.idea/
