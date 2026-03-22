@@ -12,8 +12,10 @@ class SearchRequest(BaseModel):
 class PlannerOutput(BaseModel):
     indicator: str | None = None
     dataset: str
-    filters: dict[str, str | list[str]]
-    source: Literal["kb", "catalog", "default"]
+    geo: str | None = None
+    time: str | None = None
+    filters: dict[str, str | list[str]] = Field(default_factory=dict)
+    source: Literal["openai", "kb", "catalog", "default"]
 
 
 class SearchResponse(BaseModel):

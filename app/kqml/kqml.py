@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterator
 
 
 class KQMLError(ValueError):
@@ -51,7 +51,6 @@ def _tokenize(text: str) -> Iterator[str]:
             yield '"' + "".join(out) + '"'
             continue
 
-        # symbol/keyword/number
         j = i
         while j < n and (not text[j].isspace()) and text[j] not in ("(", ")"):
             j += 1
@@ -69,7 +68,6 @@ def _parse_atom(tok: str) -> Atom:
         return True
     if low == "f":
         return False
-    # ints/floats
     try:
         if "." in tok:
             return float(tok)
@@ -128,7 +126,6 @@ def dump_sexp(expr: Sexp) -> str:
         return "f"
     if isinstance(expr, (int, float)):
         return str(expr)
-    # symbol/string
     s = str(expr)
     if _needs_quotes(s) or s.startswith(":"):
         escaped = s.replace("\\", "\\\\").replace('"', '\\"')
@@ -171,20 +168,12 @@ def parse_message(text: str) -> KQMLMessage:
     return KQMLMessage(performative=str(perf).lower(), slots=slots)
 
 
-def sexp_to_plain_obj(expr: Sexp) -> Any:
-    # Useful for putting complex values into JSON payloads.
-    if isinstance(expr, list):
-        return [sexp_to_plain_obj(x) for x in expr]
-    return expr
-
-
 def plain_obj_to_sexp(obj: Any) -> Sexp:
     if obj is None or isinstance(obj, (str, int, float, bool)):
         return obj
     if isinstance(obj, list):
         return [plain_obj_to_sexp(x) for x in obj]
     if isinstance(obj, dict):
-        # Represent dict as (dict :k v :k2 v2)
         out: list[Sexp] = ["dict"]
         for k, v in obj.items():
             out.append(":" + str(k))
@@ -195,4 +184,3 @@ def plain_obj_to_sexp(obj: Any) -> Sexp:
 
 def json_to_sexp(value: Any) -> Sexp:
     return plain_obj_to_sexp(json.loads(json.dumps(value)))
-

@@ -1,0 +1,49 @@
+{
+  "common_filters": {
+    "geo": [
+      "country",
+      "country code",
+      "nation",
+      "member state",
+      "place",
+      "location",
+      "region"
+    ],
+    "time": [
+      "year",
+      "time period",
+      "period",
+      "date",
+      "reference year"
+    ]
+  },
+  "dataset_filter_hints": {
+    "demo_pjan": ["geo", "time"],
+    "demo_find": ["geo", "time"],
+    "une_rt_m": ["geo", "time"],
+    "prc_hicp_manr": ["geo", "time"],
+    "ilc_lvho02": ["geo", "time"]
+  },
+  "endpoint_examples": {
+    "population": {
+      "dataset": "demo_pjan",
+      "filters": ["geo", "time"]
+    },
+    "fertility": {
+      "dataset": "demo_find",
+      "filters": ["geo", "time"]
+    },
+    "unemployment": {
+      "dataset": "une_rt_m",
+      "filters": ["geo", "time"]
+    },
+    "inflation": {
+      "dataset": "prc_hicp_manr",
+      "filters": ["geo", "time"]
+    },
+    "housing_deprivation": {
+      "dataset": "ilc_lvho02",
+      "filters": ["geo", "time"]
+    }
+  }
+}
