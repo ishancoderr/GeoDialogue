@@ -6,7 +6,8 @@ import requests
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.searchSchema import SearchRequest, SearchResponse
-from app.services.base import OpenAIPlanningError, run_search
+from app.services.agents.common import OpenAIPlanningError
+from app.services.langgraphbase.base import run_search
 
 router = APIRouter(tags=["search"])
 logger = logging.getLogger(__name__)

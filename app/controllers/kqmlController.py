@@ -4,21 +4,45 @@ import json
 import logging
 import os
 from typing import Any
-from typing import Annotated
 
 import requests
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from app.kqml.kqml import KQMLError, KQMLMessage, json_to_sexp, parse_message
 from app.schemas.searchSchema import SearchRequest
-from app.services.base import OpenAIPlanningError, run_search
+from app.services.agents.common import OpenAIPlanningError
+from app.services.kqmlbase.base import run_kqml_search
 
 router = APIRouter(tags=["kqml"])
 logger = logging.getLogger(__name__)
 
 KQML_MAX_PAYLOAD_CHARS = int(os.getenv("KQML_MAX_PAYLOAD_CHARS", "20000"))
-
+KQML_SEARCH_DOCS_SCHEMA = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "text/plain": {
+                "schema": {"type": "string"},
+                "examples": {
+                    "population_2022": {
+                        "summary": "Population example",
+                        "value": '(ask-one :content (search :query "German population in 2022") :reply-with "r1")',
+                    }
+                },
+            },
+            "application/json": {
+                "schema": {"type": "object"},
+                "examples": {
+                    "json_fallback": {
+                        "summary": "JSON fallback (converted to KQML)",
+                        "value": {"query": "German population in 2022"},
+                    }
+                },
+            },
+        },
+    }
+}
 
 def _http_error_detail(exc: requests.HTTPError) -> str:
     response = exc.response
@@ -71,33 +95,9 @@ def _truncate_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], bool]:
             "content": {"text/plain": {"schema": {"type": "string"}}},
         }
     },
-    openapi_extra={
-        "requestBody": {
-            "required": True,
-            "content": {
-                "text/plain": {
-                    "schema": {"type": "string"},
-                    "examples": {
-                        "population_2022": {
-                            "summary": "Population example",
-                            "value": '(ask-one :content (search :query "German population in 2022") :reply-with "r1")',
-                        }
-                    },
-                },
-                "application/json": {
-                    "schema": {"type": "object"},
-                    "examples": {
-                        "json_fallback": {
-                            "summary": "JSON fallback (converted to KQML)",
-                            "value": {"query": "German population in 2022"},
-                        }
-                    },
-                },
-            },
-        }
-    },
+    openapi_extra=KQML_SEARCH_DOCS_SCHEMA,
 )
-async def kqml_search(request: Request, body: Annotated[str, Body(...)] ) -> PlainTextResponse:
+async def kqml_search(request: Request) -> PlainTextResponse:
     logger.info("HTTP STEP A POST /api/v1/kqml/search received content_type=%s", request.headers.get("content-type"))
     try:
         raw = await request.body()
@@ -124,7 +124,7 @@ async def kqml_search(request: Request, body: Annotated[str, Body(...)] ) -> Pla
             reply_with = msg.slots.get(":reply-with", "nil")
 
         logger.info("HTTP STEP B POST /api/v1/kqml/search parsed query=%r reply_with=%r", query, reply_with)
-        result = run_search(SearchRequest(query=query))
+        result = run_kqml_search(SearchRequest(query=query))
         payload, truncated = _truncate_payload(result.payload)
 
         logger.info(
