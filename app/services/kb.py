@@ -42,8 +42,9 @@ def normalize_indicator(value: str | None) -> str | None:
     if not value:
         return None
     normalized = normalize_text(value)
-    if normalized in dataset_map():
-        return normalized
+    for indicator in dataset_map().keys():
+        if normalize_text(indicator) == normalized:
+            return indicator
     return None
 
 

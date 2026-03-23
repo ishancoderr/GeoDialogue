@@ -11,7 +11,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.kqml.kqml import KQMLError, KQMLMessage, json_to_sexp, parse_message
 from app.schemas.searchSchema import SearchRequest
-from app.services.agents.common import OpenAIPlanningError
+from app.services.agents.agent1 import OpenAIPlanningError
 from app.services.kqmlbase.base import run_kqml_search
 
 router = APIRouter(tags=["kqml"])
@@ -159,6 +159,8 @@ async def kqml_search(request: Request) -> PlainTextResponse:
                     json_to_sexp(payload),
                     ":truncated",
                     "t" if truncated else "f",
+                    ":missingness",
+                    json_to_sexp(result.missingness.model_dump()) if result.missingness is not None else "nil",
                 ],
             },
         )

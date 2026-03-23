@@ -18,10 +18,34 @@ class PlannerOutput(BaseModel):
     source: Literal["openai", "kb", "catalog", "default"]
 
 
+class MissingnessReport(BaseModel):
+    agent: str
+    source: str
+    partition_available: bool = False
+    feature_count: int = 0
+    matched_feature_count: int = 0
+    missing_types: list[str] = Field(default_factory=list)
+    joinable: bool = False
+    join_key: str | None = None
+    recoverable: bool = False
+    confidence: float = 0.0
+    note: str = ""
+
+
+class MissingnessDecision(BaseModel):
+    status: str
+    recommended_source: str | None = None
+    joinable: bool = False
+    join_key: str | None = None
+    missing_types: list[str] = Field(default_factory=list)
+    reports: list[MissingnessReport] = Field(default_factory=list)
+    note: str = ""
+
+
 class SearchResponse(BaseModel):
     agent_flow: str
     planner: PlannerOutput
     endpoint: str
     params: dict[str, str | list[str]]
     payload: dict[str, Any]
-
+    missingness: MissingnessDecision | None = None

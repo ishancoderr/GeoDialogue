@@ -1,120 +1,239 @@
 # GeoDialogue
-This project focuses on designing a multi-agent system for geographic data exchange.
 
-## Ingestion Setup (Enterprise Baseline)
+GeoDialogue is a FastAPI prototype for missingness search with two explicit agents:
+- `Agent1` checks its own local GeoJSON partition first.
+- `Agent2` checks a second GeoJSON partition and can also query Eurostat.
 
-### 1. Create virtual environment
+The current prototype exposes one endpoint:
+- `POST /api/v1/kqml/search`
+
+## Idea
+
+The system is built around missingness search rather than simple API retrieval.
+
+Example user need:
+`I am searching my missing data for Bulgaria 2007`
+
+What happens:
+1. OpenAI turns the user text into a structured plan.
+2. `Agent1` checks `europe_housing_geojson1.geojson`.
+3. If the value is missing, `Agent1` sends a KQML message to `Agent2`.
+4. `Agent2` checks `europe_housing_geojson2.geojson`.
+5. If needed, `Agent2` queries Eurostat.
+6. The API returns a final KQML response with a missingness decision.
+
+## Flow Chart
+
+```text
+User Query
+   |
+   v
+POST /api/v1/kqml/search
+   |
+   v
+OpenAI Planner
+   |
+   v
+Validated Search Plan
+   |
+   v
+Agent1 checks geojson1
+   |
+   +--> found locally ---------> Final KQML reply
+   |
+   +--> missing
+           |
+           v
+      KQML: find-missing-data
+           |
+           v
+      Agent2 checks geojson2
+           |
+           +--> found ----------> Final KQML reply
+           |
+           +--> still missing
+                   |
+                   v
+             Eurostat lookup
+                   |
+                   v
+             Final KQML reply
+```
+
+## Setup
+
+Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv
-```
-
-Activate:
-
-```bash
 .venv\Scripts\Activate.ps1
 ```
 
-### 2. Configure environment
-
-```bash
-Copy-Item .env.example .env
-```
-
-### 3. Install dependencies
+Install dependencies:
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### 4. Run ingestion test
+Create `.env` from `.env.example` and set at least these values:
 
-```bash
-python fetch_eurostat_data.py --log-level INFO
-```
-
-Expected output:
-- JSON file written to `data/ilc_lvho02_raw.json`
-- `Updated:` timestamp
-- `Dimensions:` list
-
-## Runtime Architecture
-
-- `fetch_eurostat_data.py`: CLI entry point + runtime config resolution
-- `requirements.txt`: locked runtime dependencies
-- `.env.example`: configuration contract for deployment environments
-- `.gitignore`: excludes secrets, virtual env, generated data
-
-## FastAPI Endpoint
-
-Implemented endpoint:
-
-- `POST /api/v1/data/search`
-- `POST /api/v1/kqml/search` (KQML)
-
-Run API:
-
-```bash
-python -m pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Optional OpenAI planner:
-
-```bash
-# in .env
+```env
 OPENAI_API_KEY=your_key_here
 OPENAI_MODEL=gpt-4.1-mini
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_TIMEOUT_SECONDS=30
+EUROSTAT_TIMEOUT_SECONDS=30
+LOG_LEVEL=INFO
+MISSINGNESS_GEOJSON1_PATH=data/missingness/europe_housing_geojson1.geojson
+MISSINGNESS_GEOJSON2_PATH=data/missingness/europe_housing_geojson2.geojson
 ```
 
-Test request:
+Run the API:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/data/search" ^
-  -H "Content-Type: application/json" ^
-  -d "{\"query\":\"German population in 2022\"}"
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-KQML request:
+Health check:
 
 ```bash
+curl http://127.0.0.1:8000/health
+```
+
+## How To Call The Endpoint
+
+Route:
+
+```text
+POST /api/v1/kqml/search
+```
+
+### 1. Call with real KQML
+
+```powershell
 curl -X POST "http://127.0.0.1:8000/api/v1/kqml/search" ^
   -H "Content-Type: text/plain" ^
-  --data "(ask-one :content (search :query \"German population in 2022\") :reply-with \"r1\")"
+  --data '(ask-one :content (search :query "I am searching my missing data for Bulgaria 2007") :reply-with "r1")'
 ```
 
-## Hybrid Knowledge Base (Planner Agent)
+### 2. Call with JSON fallback
 
-`parse_request` now uses a local KB before remote discovery:
+```powershell
+curl -X POST "http://127.0.0.1:8000/api/v1/kqml/search" ^
+  -H "Content-Type: application/json" ^
+  -d '{"query":"I am searching my missing data for Bulgaria 2007"}'
+```
 
-- `app/kb/dataset_map.json`: indicator key -> Eurostat dataset code
-- `app/kb/country_codes.json`: country aliases -> `geo` code
-- `app/kb/dimensions_map.json`: dataset dimension metadata (required/defaults)
-- `app/kb/endpoint_terms.json`: Eurostat endpoint parameter vocabulary used to constrain OpenAI output
+### 3. Call from Python
 
-Routing order:
+```python
+import requests
 
-1. OpenAI planner parses messy natural language into structured Eurostat fields when `OPENAI_API_KEY` is configured
-2. Local KB validates indicator, dataset, `geo`, `time`, and allowed endpoint params
-3. Eurostat dataflow catalog discovery for unresolved datasets
-4. `.env` default dataset fallback
+response = requests.post(
+    "http://127.0.0.1:8000/api/v1/kqml/search",
+    data='(ask-one :content (search :query "I am searching my missing data for Bulgaria 2007") :reply-with "r1")',
+    headers={"Content-Type": "text/plain"},
+    timeout=30,
+)
 
-## Search Flow
+print(response.status_code)
+print(response.text)
+```
 
-`POST /api/v1/data/search` runs:
+## Example KQML Response
 
-1. `PlannerAgent` (LangChain runnable): optionally calls OpenAI Responses API to normalize messy user text into strict JSON, then validates it against the Eurostat KB and resolves the dataset.
-2. `EurostatRetrieverAgent` (LangChain runnable): constructs the Eurostat API URL and fetches raw JSON payload.
+```lisp
+(tell
+  :in-reply-to "r1"
+  :content (
+    search-result
+    :indicator "housing_deprivation"
+    :dataset "ilc_lvho02"
+    :geo "BG"
+    :time "2007"
+    :filters (dict :geo "BG" :time "2007")
+    :endpoint "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/ilc_lvho02"
+    :params (dict :lang "en" :format "JSON" :geo "BG" :time "2007")
+    :payload (dict)
+    :truncated "f"
+    :missingness (dict :status "recoverable" :recommended_source "eurostat")
+  )
+)
+```
 
-Response includes:
+## Human-Readable Agent-to-Agent KQML
 
-- `planner.indicator`: normalized indicator (example `population`)
-- `planner.dataset`: selected dataset code (example `demo_pjan`)
-- `planner.geo`: normalized country code (example `DE`)
-- `planner.time`: normalized time filter (example `2022`)
-- `planner.filters`: parsed filters (example `geo=DE`, `time=2022`)
-- `endpoint` + `params`: final API call details
-- `payload`: raw Eurostat JSON
+Agent1 to Agent2:
+
+```lisp
+(ask-one
+  :sender "agent1"
+  :receiver "agent2"
+  :reply-with "missingness-r1"
+  :content (
+    find-missing-data
+    :query "I am searching my missing data for Bulgaria 2007"
+    :indicator "housing_deprivation"
+    :dataset "ilc_lvho02"
+    :geo "BG"
+    :time "2007"
+    :agent1-missing-types (attribute_missingness)
+  )
+)
+```
+
+Agent2 to Agent1:
+
+```lisp
+(tell
+  :sender "agent2"
+  :receiver "agent1"
+  :in-reply-to "missingness-r1"
+  :content (
+    missing-data-result
+    :status "found"
+    :source "europe_housing_geojson2"
+    :missing-types (attribute_missingness joinability_missingness)
+    :joinable t
+    :join-key "geo"
+    :recoverable t
+    :confidence 0.75
+    :note "europe_housing_geojson2 is missing the requested value but can be linked with key 'geo'. Agent2 can also ask Eurostat for the missing value."
+  )
+)
+```
+
+More detail is in [KQML_COMMUNICATION.md](KQML_COMMUNICATION.md).
+
+## Project Structure
+
+```text
+app/
+  controllers/
+    kqmlController.py
+  services/
+    kb.py
+    agents/
+      agent1.py
+      agent2.py
+    kqmlbase/
+      base.py
+data/
+  missingness/
+    europe_housing_geojson1.geojson
+    europe_housing_geojson2.geojson
+```
+
+## What Each Part Does
+
+- `app/services/agents/agent1.py`: Agent1, planner class, OpenAI settings, trace helpers, partition loading, and missingness decision logic.
+- `app/services/agents/agent2.py`: Agent2 and the Eurostat retriever logic.
+- `app/services/kqmlbase/base.py`: KQML orchestration and planner parsing.
+- `app/services/kb.py`: dataset, country, dimension, and endpoint validation helpers.
+
+## Notes
+
+- OpenAI is required for planning. If OpenAI fails, the search does not continue.
+- The current prototype focuses on the KQML endpoint and Agent1-to-Agent2 communication.
+- The demo GeoJSON files are intentionally small and human-readable.
